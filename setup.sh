@@ -15,10 +15,11 @@ export XILINX_VITIS=${XILINX_LOC}
 export VITIS_ROOT=${XILINX_LOC}
 
 
-if [[ $1 == "--init"]]; then
+if [[ $1 == "--init" ]]; then
     source utils/init_setup.sh
 else
     source utils/quick_setup.sh
+fi
 
 # Extras from the instructions:
 export XRT_HACK_UNSECURE_LOADING_XCLBIN=1
