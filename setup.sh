@@ -14,9 +14,11 @@ export VITIS=${XILINX_LOC}
 export XILINX_VITIS=${XILINX_LOC}
 export VITIS_ROOT=${XILINX_LOC}
 
-echo "If this is the very first environment setup, ensure you are sourcing 'init_setup.sh'."
-echo "Note: 'quick_setup.sh' is sourced by default."
-source utils/init_setup.sh
+
+if [[ $1 == "--init"]]; then
+    source utils/init_setup.sh
+else
+    source utils/quick_setup.sh
 
 # Extras from the instructions:
 export XRT_HACK_UNSECURE_LOADING_XCLBIN=1
