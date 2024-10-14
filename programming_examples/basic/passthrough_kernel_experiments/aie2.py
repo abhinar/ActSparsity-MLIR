@@ -24,7 +24,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
     N = vector_size
     n = 4   # number of cores
     K = 64  # number of rows
-    S = 2   # sparsity metric on rows (e.g. 2 means transfer every second row)
+    S = 16   # sparsity metric on rows (e.g. 2 means transfer every second row)
     N_memtile = N // n
     width = N // K
 
@@ -54,9 +54,9 @@ def passthroughKernel(vector_size, trace_size, activation_size):
         # AIE-array data movement with object fifos
         for i in range(n):
             of_in_sm_fifos[of_in_sm_names[i]] = \
-                object_fifo(of_in_sm_names[i], ShimTiles[i], MemTiles[i], 1, memref_sm)
+                object_fifo(of_in_sm_names[i], ShimTiles[i], MemTiles[i], 2, memref_sm)
             of_out_sm_fifos[of_out_sm_names[i]] = \
-                object_fifo(of_out_sm_names[i], MemTiles[i], ShimTiles[i], 1, memref_sm)
+                object_fifo(of_out_sm_names[i], MemTiles[i], ShimTiles[i], 2, memref_sm)
 
         for i in range(n):
             object_fifo_link(of_in_sm_fifos[of_in_sm_names[i]], of_out_sm_fifos[of_out_sm_names[i]])
@@ -72,24 +72,26 @@ def passthroughKernel(vector_size, trace_size, activation_size):
         )
         def sequence(inTensor, outTensor, actTensor):
             # Experiment 1
-            for i in range(n):
+            
+            for i in range(1):
                 npu_dma_memcpy_nd(
                     metadata=of_in_sm_names[i],
-                    bd_id=i % 16,
+                    bd_id=0,
                     mem=inTensor,
                     offsets=[0, 0, 0, i * N_memtile],
-                    sizes=[1, 1, 1, N_memtile],
+                    sizes=[1, 1, 1, N_memtile // S],
                 )
                 npu_dma_memcpy_nd(
                     metadata=of_out_sm_names[i],
-                    bd_id=(i + 4) % 16,
+                    bd_id=1,
                     mem=outTensor,
                     offsets=[0, 0, 0, i * N_memtile],
-                    sizes=[1, 1, 1, N_memtile],
-                )
+                    sizes=[1, 1, 1, N_memtile // S],
+               )
 
             # Experiment 2, 4
-            # for i in range(n):
+            
+            # for i in dma_core_range:
             #     npu_dma_memcpy_nd(
             #         metadata=of_in_sm_names[i],
             #         bd_id=i % 16,
@@ -100,13 +102,12 @@ def passthroughKernel(vector_size, trace_size, activation_size):
             #     )
             #     npu_dma_memcpy_nd(
             #         metadata=of_out_sm_names[i],
-            #         bd_id=(i + 4) % 16,
+            #         bd_id=(i + n) % 16,
             #         mem=outTensor,
             #         offsets=[0, 0, 0, i * N_memtile],
             #         sizes=[1, 1, K // n // S, width],
             #         strides=[0, 0, S * width, 1]
             #     )
-
             npu_sync(column=0, row=0, direction=0, channel=0)
 
 try:

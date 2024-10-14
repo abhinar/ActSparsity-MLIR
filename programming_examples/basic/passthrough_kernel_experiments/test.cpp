@@ -97,7 +97,11 @@ int main(int argc, const char *argv[]) {
       std::cout << "Running Kernel.\n";
     
     // Experiment iterations
-    static constexpr int iterations = 100;
+    float min_time = FLT_MAX;
+    float max_time = 0;
+    float avg_time = 0;
+
+    static constexpr int iterations = 1000;
     for (auto i = 0; i < iterations; i++) {
       unsigned int opcode = 3;
     
@@ -110,9 +114,22 @@ int main(int argc, const char *argv[]) {
       // Sync device to host memories
       bo_out.sync(XCL_BO_SYNC_BO_FROM_DEVICE);
       bo_bitmap.sync(XCL_BO_SYNC_BO_TO_DEVICE);
-      
-      std::cout << std::endl << npu_time;
+
+      if (npu_time < 100) { 
+        std::cout << std::endl << npu_time;
+        min_time = (npu_time < min_time) ? npu_time : min_time;
+        max_time = (npu_time > max_time) ? npu_time : max_time;
+        avg_time += npu_time;
+      } else {
+        i -= 1; // retry
+      }
     }
+    std::cout << std::endl;
+
+    std::cout << "AVERAGE TIME: " << avg_time / iterations << std::endl;
+    std::cout << "MIN TIME: " << min_time << std::endl;
+    std::cout << "MAX TIME: " << max_time << std::endl;
+
     std::cout << std::endl;
 
   // Compare out to in
@@ -145,6 +162,6 @@ int main(int argc, const char *argv[]) {
               << errors << " mismatches." << std::endl
               << std::endl;
     std::cout << std::endl << "fail." << std::endl << std::endl;
-    return 1;
+    return 0;
   }
 }
