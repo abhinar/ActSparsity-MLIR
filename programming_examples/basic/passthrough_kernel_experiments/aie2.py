@@ -27,6 +27,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
     S = 16   # sparsity metric on rows (e.g. 2 means transfer every second row)
     N_memtile = N // n
     width = N // K
+    dma_tile_range = range(n)
 
     @device(AIEDevice.npu1_4col)
     def device_body():
@@ -72,8 +73,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
         )
         def sequence(inTensor, outTensor, actTensor):
             # Experiment 1
-            
-            for i in range(1):
+            for i in dma_tile_range:
                 npu_dma_memcpy_nd(
                     metadata=of_in_sm_names[i],
                     bd_id=0,
@@ -90,8 +90,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
                )
 
             # Experiment 2, 4
-            
-            # for i in dma_core_range:
+            # for i in dma_tile_range:
             #     npu_dma_memcpy_nd(
             #         metadata=of_in_sm_names[i],
             #         bd_id=i % 16,
@@ -108,6 +107,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
             #         sizes=[1, 1, K // n // S, width],
             #         strides=[0, 0, S * width, 1]
             #     )
+            
             npu_sync(column=0, row=0, direction=0, channel=0)
 
 try:

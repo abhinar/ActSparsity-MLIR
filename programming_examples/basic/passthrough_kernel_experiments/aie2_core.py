@@ -28,6 +28,7 @@ def passthroughKernel(vector_size, trace_size, activation_size):
     S = 2   # sparsity metric on rows (e.g. 2 means transfer every second row)
     N_memtile = N // n
     width = N // K
+    dma_tile_range = range(n)
 
     @device(AIEDevice.npu1_4col)
     def device_body():
@@ -101,40 +102,40 @@ def passthroughKernel(vector_size, trace_size, activation_size):
         )
         def sequence(inTensor, outTensor, actTensor):
             # Experiment 1
-            # for i in range(n):
-            #     npu_dma_memcpy_nd(
-            #         metadata=of_in_sm_names[i],
-            #         bd_id=i % 16,
-            #         mem=inTensor,
-            #         offsets=[0, 0, 0, i * N_memtile],
-            #         sizes=[1, 1, 1, N_memtile],
-            #     )
-            #     npu_dma_memcpy_nd(
-            #         metadata=of_out_sm_names[i],
-            #         bd_id=(i + 4) % 16,
-            #         mem=outTensor,
-            #         offsets=[0, 0, 0, i * N_memtile],
-            #         sizes=[1, 1, 1, N_memtile],
-            #     )
-
-            # Experiment 2, 4
-            for i in range(n):
+            for i in dma_tile_range:
                 npu_dma_memcpy_nd(
                     metadata=of_in_sm_names[i],
                     bd_id=i % 16,
                     mem=inTensor,
                     offsets=[0, 0, 0, i * N_memtile],
-                    sizes=[1, 1, K // n // S, width],
-                    strides=[0, 0, S * width, 1]
+                    sizes=[1, 1, 1, N_memtile],
                 )
                 npu_dma_memcpy_nd(
                     metadata=of_out_sm_names[i],
                     bd_id=(i + 4) % 16,
                     mem=outTensor,
                     offsets=[0, 0, 0, i * N_memtile],
-                    sizes=[1, 1, K // n // S, width],
-                    strides=[0, 0, S * width, 1]
+                    sizes=[1, 1, 1, N_memtile],
                 )
+
+            # Experiment 2, 4
+            # for i in dma_tile_range:
+            #     npu_dma_memcpy_nd(
+            #         metadata=of_in_sm_names[i],
+            #         bd_id=i % 16,
+            #         mem=inTensor,
+            #         offsets=[0, 0, 0, i * N_memtile],
+            #         sizes=[1, 1, K // n // S, width],
+            #         strides=[0, 0, S * width, 1]
+            #     )
+            #     npu_dma_memcpy_nd(
+            #         metadata=of_out_sm_names[i],
+            #         bd_id=(i + 4) % 16,
+            #         mem=outTensor,
+            #         offsets=[0, 0, 0, i * N_memtile],
+            #         sizes=[1, 1, K // n // S, width],
+            #         strides=[0, 0, S * width, 1]
+            #     )
 
             npu_sync(column=0, row=0, direction=0, channel=0) 
 
