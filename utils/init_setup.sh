@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-##===- quick_setup.sh - Post-initial IRON for Ryzen AI dev ----------*- Script -*-===##
+##===- init_setup.sh - Setup IRON for Ryzen AI dev ----------*- Script -*-===##
 # 
 # This file licensed under the Apache License v2.0 with LLVM Exceptions.
 # See https://llvm.org/LICENSE.txt for license information.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-#
+# 
 ##===----------------------------------------------------------------------===##
 #
 # This script is the quickest path to running the Ryzen AI reference designs.
 # Please have the Vitis tools and XRT environment setup before sourcing the 
 # script.
-#
-# This is a modified version to set up environment after the initial setup script `init_setup.sh` 
-# has been run at least once. Namely, this script does not remove prior installs.
 #
 # source ./utils/quick_setup.sh
 #
@@ -25,8 +22,7 @@ if [[ $WSL_DISTRO_NAME == "" ]]; then
     echo "XRT is not installed"
     return 1
   fi
-  echo "Looking for NPU..."
-  NPU=`/opt/xilinx/xrt/bin/xrt-smi examine | grep -w RyzenAI`
+  NPU=`/opt/xilinx/xrt/bin/xrt-smi examine | grep RyzenAI`
   if [[ $NPU == *"RyzenAI"* ]]; then
     echo "Ryzen AI NPU found:"
     echo $NPU
@@ -49,27 +45,40 @@ if ! hash unzip; then
   echo "unzip is not installed"
   return 1
 fi
-
+# if an install is already present, remove it to start from a clean slate
+rm -rf ironenv
+rm -rf my_install
 python3 -m virtualenv ironenv
-
 # The real path to source might depend on the virtualenv version
 if [ -r ironenv/local/bin/activate ]; then
   source ironenv/local/bin/activate
 else
   source ironenv/bin/activate
 fi
+python3 -m pip install --upgrade pip
 VPP=`which xchesscc`
 if test -f "$VPP"; then
   AIETOOLS="`dirname $VPP`/../aietools"
   mkdir -p my_install
   pushd my_install
+  pip download mlir_aie -f https://github.com/Xilinx/mlir-aie/releases/expanded_assets/latest-wheels/
+  unzip -q mlir_aie-*_x86_64.whl
+  pip download mlir -f https://github.com/Xilinx/mlir-aie/releases/expanded_assets/mlir-distro/
+  unzip -q mlir-*_x86_64.whl
+  pip -q download llvm-aie -f https://github.com/Xilinx/llvm-aie/releases/expanded_assets/nightly
+  unzip -q llvm_aie*.whl
+  rm -rf mlir*.whl
+  rm -rf llvm_aie*.whl
+  # pip install https://github.com/makslevental/mlir-python-extras/archive/d84f05582adb2eed07145dabce1e03e13d0e29a6.zip
   export PATH=`realpath llvm-aie/bin`:`realpath mlir_aie/bin`:`realpath mlir/bin`:$PATH
   export LD_LIBRARY_PATH=`realpath llvm-aie/lib`:`realpath mlir_aie/lib`:`realpath mlir/lib`:$LD_LIBRARY_PATH
   export PYTHONPATH=`realpath mlir_aie/python`:$PYTHONPATH
   export PEANO_DIR=`realpath llvm-aie`
   popd
-  python3 -m pip install -r python/requirements.txt
-  python3 -m pip install -r python/requirements_ml.txt
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir -r python/requirements.txt
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dir -r python/requirements_ml.txt
+  python3 -m pip install --upgrade --force-reinstall --no-cache-dirpip python/requirements_bfloat16.txt || echo "Failed to install bfloat16, that's ok!"
+  pushd programming_examples
 else
   echo "Vitis not found! Exiting..."
 fi
